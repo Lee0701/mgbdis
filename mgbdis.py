@@ -1018,7 +1018,7 @@ class ROM:
 
         relative_path = os.path.join(self.image_output_directory, basename + '.' + "{}bpp".format(bpp))
         self.image_dependencies.append(relative_path)
-        path = os.path.join(self.output_directory, self.image_output_directory, basename + '.png')
+        path = os.path.join(self.output_directory, self.image_output_directory, basename + '.{}bpp.png'.format(bpp))
 
         bytes_per_tile_row = bpp  # 8 pixels at 1 or 2 bits per pixel
         bytes_per_tile = bytes_per_tile_row * 8  # 8 rows per tile
@@ -1117,10 +1117,10 @@ class ROM:
 
         f.write('all: game.{}\n\n'.format(rom_extension))
 
-        f.write('%.2bpp: %.png\n')
+        f.write('%.2bpp: %.2bpp.png\n')
         f.write('\trgbgfx -o $@ $<\n\n')
 
-        f.write('%.1bpp: %.png\n')
+        f.write('%.1bpp: %.1bpp.png\n')
         f.write('\trgbgfx -d 1 -o $@ $<\n\n')
 
         if len(self.image_dependencies):
