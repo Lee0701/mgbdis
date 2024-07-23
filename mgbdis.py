@@ -350,7 +350,7 @@ class Bank:
             # otherwise, if the address was marked as a target address, generate a label
             for instruction_name in ['call', 'jp', 'jr']:
                 if address in self.target_addresses[instruction_name]:
-                    labels.append(self.format_label(instruction_name, address) + ':')
+                    labels.append(self.format_label(instruction_name, address) + '::')
 
         return labels
 
