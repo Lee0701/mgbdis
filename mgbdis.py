@@ -12,6 +12,7 @@ import argparse
 import glob
 import hashlib
 import os
+import posixpath
 import png
 from shutil import copyfile
 
@@ -1016,7 +1017,8 @@ class ROM:
         else:
             os.makedirs(image_output_path)
 
-        relative_path = os.path.join(self.image_output_directory, basename + '.' + "{}bpp".format(bpp))
+        # Use posixpath instead of os.path to avoid Windows backslashes in the Makefile and INCBINs.
+        relative_path = posixpath.join(self.image_output_directory, basename + '.' + "{}bpp".format(bpp))
         self.image_dependencies.append(relative_path)
         path = os.path.join(self.output_directory, self.image_output_directory, basename + '.png')
 
