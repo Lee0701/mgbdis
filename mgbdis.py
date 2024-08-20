@@ -450,10 +450,10 @@ class Bank:
             instruction_name = rom.instruction_names[opcode]
             operands = rom.instruction_operands[opcode]
 
-        if instruction_name == 'stop' or (instruction_name == 'halt' and not self.style['disable_halt_nops']):
+        if instruction_name == 'stop':
             if rom.data[pc + 1] == 0x00:
-                # rgbds adds a nop instruction after a stop/halt, so if that instruction
-                # exists then we can insert it as a stop/halt command with length 2
+                # rgbds adds a nop instruction after a stop, so if that instruction
+                # exists then we can insert it as a stop command with length 2
                 length += 1
             else:
                 # otherwise handle it as a data byte
@@ -1097,6 +1097,12 @@ class ROM:
         if len(self.image_dependencies):
             f.write('IMAGE_DEPS = {}\n\n'.format(' '.join(self.image_dependencies)))
 
+        f.write("RGBVER = $(shell rgbasm --version | cut -d'.' -f2)\n\n")
+
+        f.write('ifeq ($(shell test $(RGBVER) -le 6; echo $$?),0)\n')
+        f.write('  FLAGS = --preserve-ld --halt-without-nop\n')
+        f.write('endif\n\n')
+
         f.write('all: game.{}\n\n'.format(rom_extension))
 
         f.write('%.2bpp: %.png\n')
@@ -1110,12 +1116,7 @@ class ROM:
         else:
             f.write('game.o: game.asm bank_*.asm\n')
 
-        parameters = ['--preserve-ld']
-        if self.style['disable_halt_nops']:
-            parameters.append('--halt-without-nop')
-        else:
-            parameters.append('--nop-after-halt')
-        f.write('\trgbasm {} -o game.o game.asm\n\n'.format(' '.join(parameters)))
+        f.write('\trgbasm $(FLAGS) -o game.o game.asm\n\n')
 
         f.write('game.{}: game.o\n'.format(rom_extension))
         if self.tiny:
@@ -1146,7 +1147,6 @@ parser.add_argument('--uppercase-db', help='Use uppercase for DB data declaratio
 parser.add_argument('--hli', help='Mnemonic to use for \'ld [hl+], a\' type instructions.', type=str, default='hl+', choices=['hl+', 'hli', 'ldi'])
 parser.add_argument('--ldh_a8', help='Mnemonic to use for \'ldh [a8], a\' type instructions.', type=str, default='ldh_a8', choices=['ldh_a8', 'ldh_ffa8', 'ld_ff00_a8'])
 parser.add_argument('--ld_c', help='Mnemonic to use for \'ld [c], a\' type instructions.', type=str, default='ld_c', choices=['ld_c', 'ldh_c', 'ld_ff00_c'])
-parser.add_argument('--disable-halt-nops', help='Disable RGBDS\'s automatic insertion of \'nop\' instructions after \'halt\' instructions.', action='store_true')
 parser.add_argument('--overwrite', help='Allow generating a disassembly into an already existing directory', action='store_true')
 parser.add_argument('--debug', help='Display debug output', action='store_true')
 parser.add_argument('--tiny', help='Emulate RGBLINK `-t` option (non-banked / "32k" ROMs)', action='store_true')
@@ -1163,7 +1163,6 @@ style = {
     'hli': args.hli,
     'ldh_a8': args.ldh_a8,
     'ld_c': args.ld_c,
-    'disable_halt_nops': args.disable_halt_nops,
 }
 instructions = apply_style_to_instructions(style, instructions)
 
