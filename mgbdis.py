@@ -1041,10 +1041,9 @@ class ROM:
         height = int(tile_rows) * 8
 
         pixel_data = self.convert_to_pixel_data(data, width, height, bpp)
-        rgb_palette = self.convert_palette_to_rgb(palette, bpp)
 
         f = open(path, 'wb')
-        w = png.Writer(width, height, alpha=False, bitdepth=2, palette=rgb_palette)
+        w = png.Writer(width, height, alpha=False, bitdepth=2, greyscale=True)
         w.write(f, pixel_data)
         f.close()
 
@@ -1063,9 +1062,9 @@ class ROM:
                     shift = (7 - (x & 7))
                     mask = (1 << shift)
                     if bpp == 2:
-                        color = ((data[offset] & mask) >> shift) + (((data[offset + 1] & mask) >> shift) << 1)
+                        color = 3 - (((data[offset] & mask) >> shift) + (((data[offset + 1] & mask) >> shift) << 1))
                     else:
-                        color = ((data[offset] & mask) >> shift)
+                        color = 1 - ((data[offset] & mask) >> shift)
                 else:
                     color = 0
 
@@ -1085,25 +1084,6 @@ class ROM:
         row_of_tile = y & 7
 
         return (tile_y * tiles_per_row * bytes_per_tile) + (tile_x * bytes_per_tile) + (row_of_tile * bytes_per_tile_row)
-
-
-    def convert_palette_to_rgb(self, palette, bpp):
-        col0 = 255 - (((palette & 0x03)     ) << 6)
-        col1 = 255 - (((palette & 0x0C) >> 2) << 6)
-        col2 = 255 - (((palette & 0x30) >> 4) << 6)
-        col3 = 255 - (((palette & 0xC0) >> 6) << 6)
-        if bpp == 2:
-            return [
-                (col0, col0, col0),
-                (col1, col1, col1),
-                (col2, col2, col2),
-                (col3, col3, col3)
-            ]
-        else:
-            return [
-                (col0, col0, col0),
-                (col3, col3, col3)
-            ]
 
 
     def write_makefile(self):
