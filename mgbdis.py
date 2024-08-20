@@ -1128,7 +1128,7 @@ class ROM:
 
         f.write('clean:\n')
         f.write('\trm -f game.o game.{} game.sym game.map\n'.format(rom_extension))
-        f.write('\tfind . \\( -iname \'*.1bpp\' -o -iname \'*.2bpp\' \\) -exec rm {} +')
+        f.write('\tfind . \\( -iname \'*.1bpp\' -o -iname \'*.2bpp\' \\) -exec rm {} +\n')
 
         f.close()
 
