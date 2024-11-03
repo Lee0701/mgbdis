@@ -106,7 +106,3 @@ Example for 1bpp tile data:
 Resulting image:
 
 ![Imgur](https://i.imgur.com/iX5FCXL.png)
-
-## Notes
-
-- RGBDS automatically adds ```NOP``` instructions after ```STOP``` and ```HALT```, so the disassembler will output these as data bytes if the instruction is not followed by a ```NOP``` in the original ROM. Use ```--disable-halt-nops``` with mgbdis to instruct RGBDS to disable inserting automatic ```NOP``` instructions after ```HALT``` instructions.

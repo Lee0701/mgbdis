@@ -12,6 +12,7 @@ import argparse
 import glob
 import hashlib
 import os
+import posixpath
 import png
 from shutil import copyfile
 
@@ -449,10 +450,10 @@ class Bank:
             instruction_name = rom.instruction_names[opcode]
             operands = rom.instruction_operands[opcode]
 
-        if instruction_name == 'stop' or (instruction_name == 'halt' and not self.style['disable_halt_nops']):
+        if instruction_name == 'stop':
             if rom.data[pc + 1] == 0x00:
-                # rgbds adds a nop instruction after a stop/halt, so if that instruction
-                # exists then we can insert it as a stop/halt command with length 2
+                # rgbds adds a nop instruction after a stop, so if that instruction
+                # exists then we can insert it as a stop command with length 2
                 length += 1
             else:
                 # otherwise handle it as a data byte
@@ -1016,7 +1017,8 @@ class ROM:
         else:
             os.makedirs(image_output_path)
 
-        relative_path = os.path.join(self.image_output_directory, basename + '.' + "{}bpp".format(bpp))
+        # Use posixpath instead of os.path to avoid Windows backslashes in the Makefile and INCBINs.
+        relative_path = posixpath.join(self.image_output_directory, basename + '.' + "{}bpp".format(bpp))
         self.image_dependencies.append(relative_path)
         path = os.path.join(self.output_directory, self.image_output_directory, basename + '.{}bpp.png'.format(bpp))
 
@@ -1039,10 +1041,9 @@ class ROM:
         height = int(tile_rows) * 8
 
         pixel_data = self.convert_to_pixel_data(data, width, height, bpp)
-        rgb_palette = self.convert_palette_to_rgb(palette, bpp)
 
         f = open(path, 'wb')
-        w = png.Writer(width, height, alpha=False, bitdepth=2, palette=rgb_palette)
+        w = png.Writer(width, height, alpha=False, bitdepth=2, greyscale=True)
         w.write(f, pixel_data)
         f.close()
 
@@ -1061,9 +1062,9 @@ class ROM:
                     shift = (7 - (x & 7))
                     mask = (1 << shift)
                     if bpp == 2:
-                        color = ((data[offset] & mask) >> shift) + (((data[offset + 1] & mask) >> shift) << 1)
+                        color = 3 - (((data[offset] & mask) >> shift) + (((data[offset + 1] & mask) >> shift) << 1))
                     else:
-                        color = ((data[offset] & mask) >> shift)
+                        color = 1 - ((data[offset] & mask) >> shift)
                 else:
                     color = 0
 
@@ -1085,25 +1086,6 @@ class ROM:
         return (tile_y * tiles_per_row * bytes_per_tile) + (tile_x * bytes_per_tile) + (row_of_tile * bytes_per_tile_row)
 
 
-    def convert_palette_to_rgb(self, palette, bpp):
-        col0 = 255 - (((palette & 0x03)     ) << 6)
-        col1 = 255 - (((palette & 0x0C) >> 2) << 6)
-        col2 = 255 - (((palette & 0x30) >> 4) << 6)
-        col3 = 255 - (((palette & 0xC0) >> 6) << 6)
-        if bpp == 2:
-            return [
-                (col0, col0, col0),
-                (col1, col1, col1),
-                (col2, col2, col2),
-                (col3, col3, col3)
-            ]
-        else:
-            return [
-                (col0, col0, col0),
-                (col3, col3, col3)
-            ]
-
-
     def write_makefile(self):
         rom_extension = 'gb'
         if self.supports_gbc():
@@ -1114,6 +1096,12 @@ class ROM:
 
         if len(self.image_dependencies):
             f.write('IMAGE_DEPS = {}\n\n'.format(' '.join(self.image_dependencies)))
+
+        f.write("RGBVER = $(shell rgbasm --version | cut -d'.' -f2)\n\n")
+
+        f.write('ifeq ($(shell test $(RGBVER) -le 6; echo $$?),0)\n')
+        f.write('  FLAGS = --preserve-ld --halt-without-nop\n')
+        f.write('endif\n\n')
 
         f.write('all: game.{}\n\n'.format(rom_extension))
 
@@ -1128,12 +1116,7 @@ class ROM:
         else:
             f.write('game.o: game.asm bank_*.asm\n')
 
-        parameters = ['--preserve-ld']
-        if self.style['disable_halt_nops']:
-            parameters.append('--halt-without-nop')
-        else:
-            parameters.append('--nop-after-halt')
-        f.write('\trgbasm {} -o game.o game.asm\n\n'.format(' '.join(parameters)))
+        f.write('\trgbasm $(FLAGS) -o game.o game.asm\n\n')
 
         f.write('game.{}: game.o\n'.format(rom_extension))
         if self.tiny:
@@ -1145,7 +1128,7 @@ class ROM:
 
         f.write('clean:\n')
         f.write('\trm -f game.o game.{} game.sym game.map\n'.format(rom_extension))
-        f.write('\tfind . \\( -iname \'*.1bpp\' -o -iname \'*.2bpp\' \\) -exec rm {} +')
+        f.write('\tfind . \\( -iname \'*.1bpp\' -o -iname \'*.2bpp\' \\) -exec rm {} +\n')
 
         f.close()
 
@@ -1164,7 +1147,6 @@ parser.add_argument('--uppercase-db', help='Use uppercase for DB data declaratio
 parser.add_argument('--hli', help='Mnemonic to use for \'ld [hl+], a\' type instructions.', type=str, default='hl+', choices=['hl+', 'hli', 'ldi'])
 parser.add_argument('--ldh_a8', help='Mnemonic to use for \'ldh [a8], a\' type instructions.', type=str, default='ldh_a8', choices=['ldh_a8', 'ldh_ffa8', 'ld_ff00_a8'])
 parser.add_argument('--ld_c', help='Mnemonic to use for \'ld [c], a\' type instructions.', type=str, default='ld_c', choices=['ld_c', 'ldh_c', 'ld_ff00_c'])
-parser.add_argument('--disable-halt-nops', help='Disable RGBDS\'s automatic insertion of \'nop\' instructions after \'halt\' instructions.', action='store_true')
 parser.add_argument('--overwrite', help='Allow generating a disassembly into an already existing directory', action='store_true')
 parser.add_argument('--debug', help='Display debug output', action='store_true')
 parser.add_argument('--tiny', help='Emulate RGBLINK `-t` option (non-banked / "32k" ROMs)', action='store_true')
@@ -1181,7 +1163,6 @@ style = {
     'hli': args.hli,
     'ldh_a8': args.ldh_a8,
     'ld_c': args.ld_c,
-    'disable_halt_nops': args.disable_halt_nops,
 }
 instructions = apply_style_to_instructions(style, instructions)
 
