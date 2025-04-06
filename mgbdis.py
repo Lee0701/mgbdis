@@ -850,7 +850,8 @@ class ROM:
     def load(self, tiny):
         if os.path.isfile(self.rom_path):
             print('Loading "{}"...'.format(self.rom_path))
-            self.data = open(self.rom_path, 'rb').read()
+            with open(self.rom_path, 'rb') as f:
+                self.data = f.read()
             self.rom_size = len(self.data)
             if self.rom_size < 0x150:
                 abort("ROM is too small, doesn't even contain a header!")
@@ -988,7 +989,6 @@ class ROM:
             f.write('\nINCLUDE "bank_{0:03x}.asm"'.format(bank))
         f.close()
 
-
     def write_image(self, basename, arguments, data):
 
         # defaults
@@ -1106,7 +1106,7 @@ class ROM:
         f.write('all: game.{}\n\n'.format(rom_extension))
 
         f.write('%.2bpp: %.2bpp.png\n')
-        f.write('\trgbgfx -o $@ $<\n\n')
+        f.write('\trgbgfx --colors embedded -o $@ $<\n\n')
 
         f.write('%.1bpp: %.1bpp.png\n')
         f.write('\trgbgfx -d 1 -o $@ $<\n\n')
@@ -1145,8 +1145,8 @@ parser.add_argument('--indent-spaces', help='Number of spaces to use to indent i
 parser.add_argument('--indent-tabs', help='Use tabs for indenting instructions', action='store_true')
 parser.add_argument('--uppercase-db', help='Use uppercase for DB data declarations', action='store_true')
 parser.add_argument('--hli', help='Mnemonic to use for \'ld [hl+], a\' type instructions.', type=str, default='hl+', choices=['hl+', 'hli', 'ldi'])
-parser.add_argument('--ldh_a8', help='Mnemonic to use for \'ldh [a8], a\' type instructions.', type=str, default='ldh_a8', choices=['ldh_a8', 'ldh_ffa8', 'ld_ff00_a8'])
-parser.add_argument('--ld_c', help='Mnemonic to use for \'ld [c], a\' type instructions.', type=str, default='ld_c', choices=['ld_c', 'ldh_c', 'ld_ff00_c'])
+parser.add_argument('--ldh_a8', help='Mnemonic to use for \'ldh [ffa8], a\' type instructions.', type=str, default='ldh_ffa8', choices=['ldh_ffa8', 'ld_ff00_a8'])
+parser.add_argument('--ld_c', help='Mnemonic to use for \'ldh [c], a\' type instructions.', type=str, default='ldh_c', choices=['ldh_c', 'ld_ff00_c'])
 parser.add_argument('--overwrite', help='Allow generating a disassembly into an already existing directory', action='store_true')
 parser.add_argument('--debug', help='Display debug output', action='store_true')
 parser.add_argument('--tiny', help='Emulate RGBLINK `-t` option (non-banked / "32k" ROMs)', action='store_true')
